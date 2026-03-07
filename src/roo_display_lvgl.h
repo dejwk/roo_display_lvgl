@@ -9,6 +9,7 @@
 #include "roo_display/core/streamable.h"
 #include "roo_display/products/combo_device.h"
 #include "roo_display/touch/calibration.h"
+#include "roo_display_lvgl/font.h"
 
 namespace roo_display {
 
