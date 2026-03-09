@@ -16,7 +16,7 @@ roo_collections::FlatSmallHashMap<lv_indev_t *, LvglDisplay *> indev_map;
 
 static inline uint32_t tick(void) { return roo_time::Uptime::Now().inMillis(); }
 
-} // namespace
+}  // namespace
 
 void flushAreaCb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
   auto it = display_map.find(disp);
@@ -79,7 +79,7 @@ bool LvglDisplay::getTouch(int16_t &x, int16_t &y) {
 }
 
 class DummyTouch : public TouchDevice {
-public:
+ public:
   void initTouch() override {}
 
   TouchResult getTouch(TouchPoint *points, int max_points) override {
@@ -92,7 +92,8 @@ static DummyTouch dummy_touch;
 LvglDisplay::LvglDisplay(DisplayDevice &display_device,
                          TouchDevice *touch_device,
                          TouchCalibration touch_calibration)
-    : display_device_(display_device), output_(&display_device_),
+    : display_device_(display_device),
+      output_(&display_device_),
       touch_(display_device,
              touch_device == nullptr ? dummy_touch : *touch_device,
              touch_calibration),
@@ -101,11 +102,11 @@ LvglDisplay::LvglDisplay(DisplayDevice &display_device,
                display_device.effective_height() - 1),
       framebuffer_size_(display_device.raw_width() *
                         display_device.raw_height() * 2 / 10),
-      framebuffer_(nullptr), lv_display_(nullptr) {}
+      framebuffer_(nullptr),
+      lv_display_(nullptr) {}
 
 void LvglDisplay::setOrientation(Orientation orientation) {
-  if (orientation_ == orientation)
-    return;
+  if (orientation_ == orientation) return;
   orientation_ = orientation;
   display_device_.begin();
   display_device_.setOrientation(orientation);
@@ -119,8 +120,7 @@ void LvglDisplay::setOrientation(Orientation orientation) {
 }
 
 void LvglDisplay::enableTurbo() {
-  if (turbo_ != nullptr)
-    return;
+  if (turbo_ != nullptr) return;
   turbo_frame_buffer_ = std::make_unique<BackgroundFillOptimizer::FrameBuffer>(
       display_device_.effective_width(), display_device_.effective_height());
   turbo_ = std::make_unique<BackgroundFillOptimizer>(display_device_,
@@ -167,6 +167,13 @@ void LvglDisplay::flush(const lv_area_t *area, uint8_t *px_map) {
   lv_draw_sw_rgb565_swap(px_map, lv_area_get_size(area));
   display_device_.begin();
   // device.display().fillRect(10, 10, 50, 50, roo_display::color::Red);
+  DCHECK_GE(area->x1, 0);
+  DCHECK_LT(area->x1 + (area->x2 - area->x1),
+            display_device_.effective_width());
+  DCHECK_GE(area->y1, 0);
+  DCHECK_LT(area->y1 + (area->y2 - area->y1),
+            display_device_.effective_height());
+
   output_->drawDirectRect(
       (const roo::byte *)px_map, 2 * (area->x2 - area->x1 + 1), 0, 0,
       area->x2 - area->x1, area->y2 - area->y1, area->x1, area->y1);
@@ -175,4 +182,4 @@ void LvglDisplay::flush(const lv_area_t *area, uint8_t *px_map) {
   lv_display_flush_ready(lv_display_);
 }
 
-} // namespace roo_display
+}  // namespace roo_display
