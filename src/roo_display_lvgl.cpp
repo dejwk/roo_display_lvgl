@@ -93,6 +93,7 @@ LvglDisplay::LvglDisplay(DisplayDevice &display_device,
                          TouchDevice *touch_device,
                          TouchCalibration touch_calibration)
     : display_device_(display_device),
+      byteswap_(false),  // Set in init().
       output_(&display_device_),
       touch_(display_device,
              touch_device == nullptr ? dummy_touch : *touch_device,
@@ -136,6 +137,8 @@ void LvglDisplay::disableTurbo() {
 
 void LvglDisplay::init() {
   display_device_.init();
+  byteswap_ = (display_device_.getColorFormat().byte_order() !=
+               roo_io::ByteOrder::kNativeEndian);
   extents_ = Box(0, 0, display_device_.effective_width() - 1,
                  display_device_.effective_height() - 1);
   touch_.init();
@@ -164,9 +167,10 @@ void LvglDisplay::init() {
 }
 
 void LvglDisplay::flush(const lv_area_t *area, uint8_t *px_map) {
-  lv_draw_sw_rgb565_swap(px_map, lv_area_get_size(area));
+  if (byteswap_) {
+    lv_draw_sw_rgb565_swap(px_map, lv_area_get_size(area));
+  }
   display_device_.begin();
-  // device.display().fillRect(10, 10, 50, 50, roo_display::color::Red);
   DCHECK_GE(area->x1, 0);
   DCHECK_LT(area->x1 + (area->x2 - area->x1),
             display_device_.effective_width());

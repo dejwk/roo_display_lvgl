@@ -15,11 +15,12 @@ namespace roo_display {
 
 /// @brief Wrapper providing calibrated touch input for a display device.
 class LvglTouchDisplay {
-public:
+ public:
   /// Constructs a touch display wrapper.
   LvglTouchDisplay(DisplayDevice &display_device, TouchDevice &touch_device,
                    TouchCalibration touch_calibration = TouchCalibration())
-      : display_device_(display_device), touch_device_(touch_device),
+      : display_device_(display_device),
+        touch_device_(touch_device),
         touch_calibration_(touch_calibration) {}
 
   /// Initializes the touch device.
@@ -41,7 +42,7 @@ public:
   /// Returns the current touch calibration.
   const TouchCalibration &calibration() const { return touch_calibration_; }
 
-private:
+ private:
   DisplayDevice &display_device_;
   TouchDevice &touch_device_;
   TouchCalibration touch_calibration_;
@@ -53,7 +54,7 @@ private:
 
 /// @brief Display facade that owns a display device and optional touch input.
 class LvglDisplay {
-public:
+ public:
   /// Constructs a display without touch support.
   LvglDisplay(DisplayDevice &display_device)
       : LvglDisplay(display_device, nullptr, TouchCalibration()) {}
@@ -130,16 +131,20 @@ public:
 
   bool isTurboEnabled() const { return turbo_ != nullptr; }
 
-private:
+ private:
   LvglDisplay(DisplayDevice &display_device, TouchDevice *touch_device,
               TouchCalibration touch_calibration);
 
-  friend void flushAreaCb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);
-  friend void touchReadCb(lv_indev_t* indev, lv_indev_data_t* data);
+  friend void flushAreaCb(lv_display_t *disp, const lv_area_t *area,
+                          uint8_t *px_map);
+  friend void touchReadCb(lv_indev_t *indev, lv_indev_data_t *data);
 
   void flush(const lv_area_t *area, uint8_t *px_map);
 
   DisplayDevice &display_device_;
+  bool byteswap_;  // Whether the display device's byte order differs from the
+                   // LVGL.
+
   std::unique_ptr<BackgroundFillOptimizer::FrameBuffer> turbo_frame_buffer_;
   std::unique_ptr<BackgroundFillOptimizer> turbo_;
   // Set to either the display_device_ or the turbo wrapper.
@@ -154,4 +159,4 @@ private:
   lv_display_t *lv_display_;
 };
 
-} // namespace roo_display
+}  // namespace roo_display
