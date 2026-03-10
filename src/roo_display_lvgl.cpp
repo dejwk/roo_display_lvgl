@@ -2,6 +2,7 @@
 
 #include "roo_collections.h"
 #include "roo_collections/flat_small_hash_map.h"
+#include "roo_display_lvgl/hal/dma.h"
 
 // #include <cmath>
 
@@ -106,6 +107,13 @@ LvglDisplay::LvglDisplay(DisplayDevice &display_device,
       framebuffer_(nullptr),
       lv_display_(nullptr) {}
 
+LvglDisplay::~LvglDisplay() {
+  if (framebuffer_ != nullptr) {
+    dma_free(framebuffer_);
+    framebuffer_ = nullptr;
+  }
+}
+
 void LvglDisplay::setOrientation(Orientation orientation) {
   if (orientation_ == orientation) return;
   orientation_ = orientation;
@@ -147,30 +155,29 @@ void LvglDisplay::init() {
   lv_display_ = lv_display_create(display_device_.effective_width(),
                                   display_device_.effective_height());
   display_map.insert({lv_display_, this});
-  LOG(INFO) << "Allocating framebuffer of size " << framebuffer_size_
-            << " bytes";
-  framebuffer_.reset(new roo::byte[framebuffer_size_]);
-  LOG(INFO) << "Framebuffer allocated at "
-            << static_cast<void *>(framebuffer_.get());
-  lv_display_set_buffers(lv_display_, framebuffer_.get(), nullptr,
-                         framebuffer_size_, LV_DISPLAY_RENDER_MODE_PARTIAL);
+  if (framebuffer_ != nullptr) {
+    dma_free(framebuffer_);
+  }
+  framebuffer_ =
+      CHECK_NOTNULL(static_cast<roo::byte *>(dma_alloc(framebuffer_size_)));
 
-  LOG(INFO) << "Buffers set";
+  lv_display_set_buffers(lv_display_, framebuffer_, nullptr, framebuffer_size_,
+                         LV_DISPLAY_RENDER_MODE_PARTIAL);
+
   lv_display_set_flush_cb(lv_display_, flushAreaCb);
-  LOG(INFO) << "Flush callback set";
 
   lv_indev_t *indev = lv_indev_create();           /* Create input device */
   lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER); /* Set the device type */
   indev_map.insert({indev, this});
   lv_indev_set_read_cb(indev, touchReadCb); /* Set the read callback */
-  LOG(INFO) << "Input device set";
 }
 
 void LvglDisplay::flush(const lv_area_t *area, uint8_t *px_map) {
+  static roo_time::Uptime last_flush_start = roo_time::Uptime::Start();
+  static roo_time::Uptime last_flush_end = roo_time::Uptime::Start();
   if (byteswap_) {
     lv_draw_sw_rgb565_swap(px_map, lv_area_get_size(area));
   }
-  display_device_.begin();
   DCHECK_GE(area->x1, 0);
   DCHECK_LT(area->x1 + (area->x2 - area->x1),
             display_device_.effective_width());
@@ -178,12 +185,21 @@ void LvglDisplay::flush(const lv_area_t *area, uint8_t *px_map) {
   DCHECK_LT(area->y1 + (area->y2 - area->y1),
             display_device_.effective_height());
 
-  output_->drawDirectRect(
-      (const roo::byte *)px_map, 2 * (area->x2 - area->x1 + 1), 0, 0,
-      area->x2 - area->x1, area->y2 - area->y1, area->x1, area->y1);
-  display_device_.end();
+  // LOG(INFO) << "Last flush: " << (last_flush_end -
+  // last_flush_start).inMicros();
+  last_flush_start = roo_time::Uptime::Now();
+  // LOG(INFO) << "Gap:        " << (last_flush_start -
+  // last_flush_end).inMicros();
 
-  lv_display_flush_ready(lv_display_);
+  display_device_.begin();
+
+  output_->drawDirectRectAsync(
+      (const roo::byte *)px_map, 2 * (area->x2 - area->x1 + 1), 0, 0,
+      area->x2 - area->x1, area->y2 - area->y1, area->x1, area->y1, [this]() {
+        display_device_.end();
+        last_flush_end = roo_time::Uptime::Now();
+        lv_display_flush_ready(lv_display_);
+      });
 }
 
 }  // namespace roo_display

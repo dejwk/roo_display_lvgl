@@ -69,6 +69,8 @@ class LvglDisplay {
       : LvglDisplay(device.display(), device.touch(),
                     device.touch_calibration()) {}
 
+  ~LvglDisplay();
+
   /// Returns the total pixel area of the raw device.
   int32_t area() const {
     return display_device_.raw_width() * display_device_.raw_height();
@@ -155,7 +157,7 @@ class LvglDisplay {
   Box extents_;
 
   size_t framebuffer_size_;
-  std::unique_ptr<roo::byte[]> framebuffer_;
+  roo::byte *framebuffer_;
   lv_display_t *lv_display_;
 };
 
