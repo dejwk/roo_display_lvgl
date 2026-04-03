@@ -3,6 +3,8 @@
 /// utilities.
 #pragma once
 
+#include <cstdint>
+
 #include "lvgl.h"
 #include "roo_display.h"
 #include "roo_display/core/device.h"
@@ -10,6 +12,7 @@
 #include "roo_display/products/combo_device.h"
 #include "roo_display/touch/calibration.h"
 #include "roo_display_lvgl/font.h"
+#include "roo_threads.h"
 
 namespace roo_display {
 
@@ -142,6 +145,17 @@ class LvglDisplay {
   friend void touchReadCb(lv_indev_t *indev, lv_indev_data_t *data);
 
   void flush(const lv_area_t *area, uint8_t *px_map);
+  void renderLoop();
+  void waitForRenderIdle();
+  void stopRenderWorker();
+  void startRenderWorker();
+
+  struct RenderRequest {
+    lv_area_t area;
+    uint8_t *px_map;
+    uint32_t row_width_bytes;
+    bool valid;
+  };
 
   DisplayDevice &display_device_;
   bool byteswap_;  // Whether the display device's byte order differs from the
@@ -156,9 +170,16 @@ class LvglDisplay {
 
   Box extents_;
 
-  size_t framebuffer_size_;
   roo::byte *framebuffer_;
   lv_display_t *lv_display_;
+  lv_indev_t *lv_indev_;
+
+  roo::thread render_thread_;
+  roo::mutex render_mutex_;
+  roo::condition_variable render_cv_;
+  bool render_stop_;
+  bool render_busy_;
+  RenderRequest pending_render_;
 };
 
 }  // namespace roo_display
